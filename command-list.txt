@@ -1,0 +1,8 @@
+- pconnect start (inicia tanto o php quanto o mysql ao mesmo tempo)
+- pconnect end (encerra tanto o php quanto o mysql ao mesmo tempo)
+
+- pconnect php start (inicia somente o php)
+- pconnect mysql start (inicia somente o mysql)
+
+- pconnect php end (encerra somente o php)
+- pconnect mysql end (encerra somente o mysql)
