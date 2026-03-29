@@ -10,19 +10,19 @@ pub fn install_all(global: &GlobalConfig) {
 
     // PHP
     if global.installations.php_install {
-        let url = format!("https://windows.php.net/downloads/releases/archives/php-{}-Win32-vs16-x64.zip", global.default_versions.php_version);
+        let url = format!("https://downloads.php.net/~windows/releases/archives/php-{}-nts-Win32-vs17-x64.zip", global.default_versions.php_version);
         download_and_extract("php", &url, &global.default_versions.php_version, &base_path);
     }
 
     // MySQL
     if global.installations.mysql_install {
-        let url = format!("https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-{}-winx64.zip", global.default_versions.mysql_version);
+        let url = format!("https://downloads.mysql.com/archives/get/p/23/file/mysql-{}-winx64.zip", global.default_versions.mysql_version);
         download_and_extract("mysql", &url, &global.default_versions.mysql_version, &base_path);
     }
 
     // Bun
     if global.installations.bun_install {
-        let url = format!("https://github.com/oven-sh/bun/releases/download/bun-v{}/bun-windows-x64.zip", global.default_versions.bun_version);
+        let url = format!("https://github.com/oven-sh/bun/releases/download/bun-v{}/bun-windows-x64-baseline.zip", global.default_versions.bun_version);
         download_and_extract("bun", &url, &global.default_versions.bun_version, &base_path);
     }
 }
@@ -38,8 +38,13 @@ fn download_and_extract(program_name: &str, url: &str, version: &str, target_pat
     println!("📥 Baixando {}-{}...", program_name, version);
     
     // Tratamento básico para caso o link falhe (ex: versão errada no URL)
-    let response = reqwest::blocking::get(url).unwrap_or_else(|_| {
-        panic!("❌ Erro fatal: Não foi possível conectar ao servidor para baixar {}. Verifique sua internet.", program_name)
+    let client = reqwest::blocking::Client::builder()
+    .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+    .build()
+    .unwrap();
+
+    let response = client.get(url).send().unwrap_or_else(|_| {
+        panic!("❌ Erro fatal: Não foi possível conectar para baixar {}.", program_name)
     });
 
     if !response.status().is_success() {
