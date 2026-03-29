@@ -8,7 +8,7 @@ use crate::configs::pconnect_cfg;
 fn main() {
     let cli = Cli::parse();
 
-    // 1. Carregamos a Configuração Global (onde ficam as versões e caminhos da .pconnect)
+    // 1. Carregamos a Configuração Global
     let global_config = pconnect_cfg::load_global_config();
 
     match &cli.command {
@@ -20,53 +20,32 @@ fn main() {
 
         // --- COMANDO CREATE ---
         Commands::Create(args) => {
+            // Passamos o nome do projeto e a config global para o manager de criação
             managers::create_project_manager::create_project(&args.name, &global_config);
         }
 
-        // --- COMANDOS QUE DEPENDEM DO PROJETO LOCAL ---
-        Commands::Run | Commands::Stop => {
-            // Carrega o pconnect.cfg.toml da pasta atual do projeto
+        // --- COMANDO RUN ---
+        Commands::Run => {
+            // Carrega o pconnect.cfg.toml da pasta onde o usuário está
             let project_config = pconnect_cfg::load_project_config();
             
-            match &cli.command {
-                Commands::Run => {
-                    println!("🚀 Iniciando ecossistema de desenvolvimento...");
+            // Delega para o run_manager orquestrar os processos e o Ctrl+C
+            managers::run_manager::start_orchestrator(&project_config, &global_config);
+        }
 
-                    // 1. Inicia o PostgreSQL (Banco precisa subir antes do backend)
-                    managers::postgresql_manager::run_postgresql(&project_config, &global_config);
-                    
-                    // 2. Inicia o PHP (Laravel Artisan)
-                    managers::php_manager::run_php(&project_config, &global_config);
-                    
-                    // 3. Inicia o Bun (Vite/Vue)
-                    managers::bun_manager::run_vue(&project_config, &global_config);
-
-                    println!("\n✨ Stack iniciada com sucesso!");
-                    println!("🌐 Laravel:  http://localhost:{}", project_config.ports.laravel_port);
-                    println!("🎨 Frontend: http://localhost:{}", project_config.ports.vue_port);
-                    println!("🐘 PostgreSQL: Porta {}", project_config.ports.postgresql_port); // Ajustado de MySQL para PostgreSQL
-                    
-                    println!("\nPressione Ctrl+C para encerrar ou use 'pconnect stop' em outro terminal.");
-
-                    // Mantém o processo principal vivo
-                    loop {
-                        std::thread::sleep(std::time::Duration::from_secs(1));
-                    }
-                }
-                Commands::Stop => { 
-                    println!("🛑 Encerrando todos os serviços do projeto...");
-                    
-                    // Ordem de parada: App -> DB
-                    managers::php_manager::stop_php();
-                    managers::bun_manager::stop_vue();
-                    managers::postgresql_manager::stop_postgresql();
-                    
-                    println!("✅ Todos os processos foram finalizados.");
-                },
-                _ => unreachable!(),
-            }
+        // --- COMANDO STOP ---
+        Commands::Stop => { 
+            println!("🛑 Encerrando todos os processos do ecossistema...");
+            
+            // Chama os comandos de parada individualmente
+            managers::php_manager::stop_php();
+            managers::bun_manager::stop_vue();
+            managers::postgresql_manager::stop_postgresql();
+            
+            println!("✅ Todos os serviços foram finalizados.");
         }
     
+        // --- COMANDO SHELL ---
         Commands::Shell => {
             managers::shell_manager::spawn_shell(&global_config);
         }
