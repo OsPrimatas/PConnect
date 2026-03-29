@@ -1,5 +1,6 @@
 use serde::Deserialize;
 use std::fs;
+use regex::Regex;
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Config{ 
@@ -61,11 +62,18 @@ pub fn load_config() -> Config {
     let config: Config = toml::from_str(&content)
         .expect("❌ Erro: Falha ao processar o TOML. Verifique a sintaxe.");
 
-    validate_versions(&config);
+    validate_config(&config);
     config
 }
 
-fn validate_versions(config: &Config) {
+fn validate_config(config: &Config) {
+    // Regex para: Apenas letras, números e hífens (sem espaços ou especiais)
+    let re = Regex::new(r"^[a-zA-Z0-9-]+$").unwrap();
+
+    if !re.is_match(&config.project.name) {
+        panic!("🛑 Erro: O nome do projeto '{}' é inválido. Use apenas letras, números e hífens.", config.project.name);
+    }
+
     if config.versions.php_version.as_str() < "8.5.4" {
         panic!("🛑 Erro: Este CLI exige PHP 8.5.4 ou superior. \n Versão detectada: {}", config.versions.php_version);
     }

@@ -1,57 +1,48 @@
-pub mod managers;
 pub mod configs;
-pub mod general_commands;
+pub mod managers;
 pub mod hosts;
 
-use general_commands::Cli;
 use clap::Parser;
+use crate::configs::php_connects_cmd::Cli;
+use crate::configs::php_connects_cmd::Commands;
 
 fn main() {
     let cli = Cli::parse();
-    let config = configs::config_loader::load();
+    let config = configs::php_connects_cfg::load_config();
 
     match &cli.command {
-        general_commands::Commands::Start => {
-            println!("Iniciando O PHP & MySQL...");
-            
-            // Iniciar o php + mysql
-            managers::php_manager::run_php(&config.php);
-            managers::mysql_manager::run_mysql();
+        Commands::Install => {
+            managers::download_manager::install_all(&config);
         }
-        general_commands::Commands::End => {
-            println!("Encerrando O PHP & MySQL...");
+        Commands::Create(args) => {
+            managers::create_project_manager::create_project(&args.name, &config);
+        }
+        Commands::Run => {
+            println!("🚀 Iniciando ecossistema de desenvolvimento...");
+            
+            // Inicia Host personalizado
+            hosts::register_local_domain(&config.project.name);
 
-            // Encerrar o php + mysql
+            // Inicia o php
+            managers::php_manager::run_php(&config);
+            // Inicia o MySQL
+            managers::mysql_manager::run_mysql(&config);
+            // Inicia o Bun (Vite/Vue)
+            managers::bun_manager::run_vue(&config);
+
+            println!("\n✨ Stack iniciada com sucesso!");
+            println!("🌐 Backend: http://localhost:{}", config.ports.php_port);
+            println!("🎨 Frontend: http://localhost:{}", config.ports.vue_port);
+            println!("\nPresione Ctrl+C para encerrar ou use 'pconnect stop' em outro terminal.");
+
+            loop {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+            }
+        }
+        Commands::Stop => {
             managers::php_manager::stop_php();
             managers::mysql_manager::stop_mysql();
-        }
-        general_commands::Commands::Php { action } => match action {
-            general_commands::ServiceAction::Start => {
-                println!("Iniciando O PHP...");
-
-                // Iniciar o php
-                managers::php_manager::run_php(&config.php);
-            }
-            general_commands::ServiceAction::End => {
-                println!("Encerrando O PHP...");
-
-                // Encerrar o php
-                managers::php_manager::stop_php();
-            }
-        },
-        general_commands::Commands::Mysql { action } => match action {
-            general_commands::ServiceAction::Start => {
-                println!("Iniciando O MySQL...");
-
-                // Iniciar o mysql
-                managers::mysql_manager::run_mysql();
-            }
-            general_commands::ServiceAction::End => {
-                println!("Encerrando O MySQL...");
-
-                // Encerrar o mysql
-                managers::mysql_manager::stop_mysql();
-            }
+            managers::bun_manager::stop_vue();
         }
     }
 }
