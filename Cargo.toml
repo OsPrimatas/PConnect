@@ -1,5 +1,5 @@
 [package]
-name = "php-connects"
+name = "pconnect"
 version = "1.0.0"
 edition = "2024"
 
