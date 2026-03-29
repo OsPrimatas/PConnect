@@ -1,6 +1,5 @@
 pub mod configs;
 pub mod managers;
-pub mod hosts;
 
 use clap::Parser;
 use crate::configs::php_connects_cmd::Cli;
@@ -19,9 +18,6 @@ fn main() {
         }
         Commands::Run => {
             println!("🚀 Iniciando ecossistema de desenvolvimento...");
-            
-            // Inicia Host personalizado
-            hosts::register_local_domain(&config.project.name);
 
             // Inicia o php
             managers::php_manager::run_php(&config);

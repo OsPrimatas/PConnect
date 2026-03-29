@@ -14,13 +14,16 @@ pub fn create_project(name: &str, config: &Config) {
     println!("Criando novo projeto fullstack: {}...", name);
     fs::create_dir_all(&project_root).expect("Falha ao criar pasta do projeto");
 
-    // 1. Criar o Back-end (Laravel)
+    // 1. Criar o arquivo de configuração padrão (php_connects.cfg.toml) para o projeto
+    generate_default_toml(&project_root, name);
+
+    // 2. Criar o Back-end (Laravel)
     create_laravel_backend(&project_root.join(&config.paths.backend_dir), config);
 
-    // 2. Criar o Front-end (Vue + Vite via Bun)
+    // 3. Criar o Front-end (Vue + Vite via Bun)
     create_vue_frontend(&project_root.join(&config.paths.frontend_dir), config);
 
-    // 3. Configurar o .env do Laravel para o seu MySQL local
+    // 4. Configurar o .env do Laravel para o seu MySQL local
     setup_env_file(&project_root.join(&config.paths.backend_dir), config);
 
     println!("\n✨ Projeto '{}' criado com sucesso!", name);
@@ -90,4 +93,48 @@ fn get_global_bin(name: &str, version: &str, subpath: &str) -> PathBuf {
         .join(".php-connects")
         .join(format!("{}-{}", name, version))
         .join(subpath)
+}
+
+fn generate_default_toml(project_path: &std::path::Path, project_name: &str) {
+    let toml_path = project_path.join("php_connects.cfg.toml");
+    
+    // Aqui definimos o esqueleto padrão que todo projeto novo terá
+    let default_content = format!(
+    r#"[project]
+    name = "{0}"
+    edition = "1.0"
+
+    [stack]
+    frontend = "vue"
+    backend = "laravel"
+    database = "mysql"
+
+    [ports]
+    php_port = 8080
+    laravel_port = 8081
+    mysql_port = 8082
+    vue_port = 8083
+
+    [paths]
+    backend_dir = "./backend"
+    frontend_dir = "./frontend"
+
+    [versions]
+    bun_version = "1.3.6"
+    vue_version = "3.5.31"
+    laravel_version = "13"
+    php_version = "8.5.4"
+    mysql_version = "8.0.46"
+
+    [mysql]
+    db = "{0}_db"
+    host = "localhost"
+    user = "root"
+    pass = "admin"
+    "#, project_name);
+
+    std::fs::write(toml_path, default_content)
+        .expect("❌ Erro ao criar o arquivo php_connects.cfg.toml inicial");
+    
+    println!("📝 Arquivo de configuração gerado para o projeto: {}", project_name);
 }

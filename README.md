@@ -63,14 +63,7 @@ O **pconnect** segue uma arquitetura opinativa para garantir portabilidade:
 └── .php.pid                # Arquivo de controle de processo
 ```
 
-### 🌐 Proxy e Domínios Locais
-
-O CLI edita automaticamente o arquivo `hosts` do Windows para permitir o acesso via `http://nome-do-projeto.local`.
-
-**Nota:** Para o registro do domínio local funcionar, o terminal deve ser executado como **Administrador**.
-
 ### ⚙️ Requisitos
 
 - Windows 10/11
 - Acesso à Internet (para o primeiro download dos binários)
-- Permissões de Administrador (apenas para o comando run com proxy)
