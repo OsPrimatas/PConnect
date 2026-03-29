@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(name = "pconnect")]
-#[command(about = "Um gerenciador de projetos que integrará PHP, MySQL, Bun e Laravel", long_about = None)]
+#[command(about = "Um gerenciador de projetos que integrará PHP, PostgreSQL, Bun e Laravel", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
