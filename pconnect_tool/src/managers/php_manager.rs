@@ -13,7 +13,7 @@ fn get_php_executable(global: &GlobalConfig) -> PathBuf {
 
     let home = std::env::var("USERPROFILE").expect("❌ Erro: USERPROFILE não encontrado");
     PathBuf::from(home)
-        .join(".php-connects")
+        .join(".pconnect")
         .join(format!("php-{}", global.versions.php_version))
         .join("php.exe")
 }

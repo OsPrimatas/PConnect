@@ -11,10 +11,10 @@ fn get_bun_executable(global: &GlobalConfig) -> PathBuf {
         return PathBuf::from("bun"); 
     }
 
-    // Caso contrário, busca na pasta .php-connects usando a versão global
+    // Caso contrário, busca na pasta .pconnect usando a versão global
     let home = std::env::var("USERPROFILE").expect("❌ Erro: USERPROFILE não encontrado");
     PathBuf::from(home)
-        .join(".php-connects")
+        .join(".pconnect")
         .join(format!("bun-{}", global.versions.bun_version))
         .join("bun-windows-x64") 
         .join("bun.exe")
