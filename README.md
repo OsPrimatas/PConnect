@@ -24,3 +24,53 @@ Execute o comando de instalação para baixar os binários necessários. Eles fi
 ```bash
 pconnect install
 ```
+
+### 2. Criando um Novo Ecossistema
+
+Este comando gera a estrutura de pastas, baixa as dependências e configura automaticamente o arquivo `.env` do Laravel para conectar ao banco local
+
+```bash
+pconnect create "meu-projeto"
+```
+
+### 3. Desenvolvimento Ativo
+
+Entre na pasta criada e suba toda a stack. O **pconnect** configurará o domínio local (ex: meu-projeto.local) e abrirá as portas definidas no seu `.toml`.
+
+```bash
+cd meu-projeto
+pconnect run
+```
+
+### 4. Finalizando a Sessão
+
+Para parar todos os serviços de forma segura:
+
+```bash
+pconnect stop
+```
+
+### Estrutura de Diretórios Gerada
+
+O **pconnect** segue uma arquitetura opinativa para garantir portabilidade:
+
+```bash
+/meu-projeto
+├── /backend                # Laravel Framework (PHP 8.x)
+├── /frontend               # Vue 3 + Vite (Bun)
+├── /.cache/mysql           # Dados do MySQL (Exclusivos deste projeto)
+├── php_connects.cfg.toml   # Configurações de portas, versões e proxy
+└── .php.pid                # Arquivo de controle de processo
+```
+
+### 🌐 Proxy e Domínios Locais
+
+O CLI edita automaticamente o arquivo `hosts` do Windows para permitir o acesso via `http://nome-do-projeto.local`.
+
+**Nota:** Para o registro do domínio local funcionar, o terminal deve ser executado como **Administrador**.
+
+### ⚙️ Requisitos
+
+- Windows 10/11
+- Acesso à Internet (para o primeiro download dos binários)
+- Permissões de Administrador (apenas para o comando run com proxy)
