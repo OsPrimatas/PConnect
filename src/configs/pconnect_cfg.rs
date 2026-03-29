@@ -11,8 +11,6 @@ pub struct GlobalConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct DefaultVersions {
     pub bun_version: String,
-    pub vue_version: String,
-    pub laravel_version: String,
     pub php_version: String,
     pub mysql_version: String,
 }
