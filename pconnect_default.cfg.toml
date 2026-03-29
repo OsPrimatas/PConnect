@@ -1,7 +1,7 @@
 [default_versions]
 bun_version = "1.3.11"
 php_version = "8.5.4"
-mysql_version = "9.5.0"
+mysql_version = "9.6.0"
 
 [installations]
 bun_install = true

@@ -24,12 +24,16 @@ pub fn install_all(global: &GlobalConfig) {
 
     // MySQL
     if global.installations.mysql_install {
-        // Link de Archive para garantir o download do ZIP portátil
+        let version = &global.default_versions.mysql_version;
+        let major_minor = version.split('.').take(2).collect::<Vec<_>>().join(".");
+
+        // URL para versões novas (GA)
         let url = format!(
-            "https://downloads.mysql.com/archives/get/p/23/file/mysql-{}-winx64.zip", 
-            global.default_versions.mysql_version
+            "https://dev.mysql.com/get/Downloads/MySQL-{}/mysql-{}-winx64.zip",
+            major_minor, version
         );
-        download_and_extract("mysql", &url, &global.default_versions.mysql_version, &base_path);
+
+        download_and_extract("mysql", &url, version, &base_path);
     }
 
     // Bun
