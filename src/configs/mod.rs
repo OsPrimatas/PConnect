@@ -1,2 +1,2 @@
-pub mod php_connects_cfg;
-pub mod php_connects_cmd;
+pub mod pconnect_cfg;
+pub mod pconnect_cmd;

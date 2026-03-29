@@ -2,46 +2,66 @@ pub mod configs;
 pub mod managers;
 
 use clap::Parser;
-use crate::configs::php_connects_cmd::Cli;
-use crate::configs::php_connects_cmd::Commands;
+use crate::configs::pconnect_cmd::{Cli, Commands};
+use crate::configs::pconnect_cfg;
 
 fn main() {
     let cli = Cli::parse();
 
+    // 1. Carregamos a Configuração Global
+    let global_config = pconnect_cfg::load_global_config();
+
     match &cli.command {
+        // --- COMANDO INSTALL ---
         Commands::Install => {
-            managers::download_manager::install_all(); 
+            println!("🛠️  Iniciando instalação global do ecossistema pconnect...");
+            managers::download_manager::install_all(&global_config); 
         }
+
+        // --- COMANDO CREATE ---
         Commands::Create(args) => {
-            managers::create_project_manager::create_project(&args.name);
+            // O create usa a global para saber quais versões colocar no .env e quais binários usar
+            managers::create_project_manager::create_project(&args.name, &global_config);
         }
+
+        // --- COMANDOS QUE DEPENDEM DO PROJETO LOCAL ---
         Commands::Run | Commands::Stop => {
-            let config = configs::php_connects_cfg::load_config();
+            // Carrega o pconnect.cfg.toml da pasta atual
+            let project_config = pconnect_cfg::load_project_config();
             
             match &cli.command {
                 Commands::Run => {
                     println!("🚀 Iniciando ecossistema de desenvolvimento...");
 
-                    // Inicia o php
-                    managers::php_manager::run_php(&config);
-                    // Inicia o MySQL
-                    managers::mysql_manager::run_mysql(&config);
-                    // Inicia o Bun (Vite/Vue)
-                    managers::bun_manager::run_vue(&config);
+                    // 1. Inicia o MySQL (precisa subir primeiro para o Laravel não dar erro de conexão)
+                    managers::mysql_manager::run_mysql(&project_config, &global_config);
+                    
+                    // 2. Inicia o PHP (Laravel Artisan)
+                    managers::php_manager::run_php(&project_config, &global_config);
+                    
+                    // 3. Inicia o Bun (Vite/Vue)
+                    managers::bun_manager::run_vue(&project_config, &global_config);
 
                     println!("\n✨ Stack iniciada com sucesso!");
-                    println!("🌐 Backend: http://localhost:{}", config.ports.php_port);
-                    println!("🎨 Frontend: http://localhost:{}", config.ports.vue_port);
+                    println!("🌐 Laravel:  http://localhost:{}", project_config.ports.laravel_port);
+                    println!("🎨 Frontend: http://localhost:{}", project_config.ports.vue_port);
+                    println!("🐬 MySQL:    Porta {}", project_config.ports.mysql_port);
+                    
                     println!("\nPresione Ctrl+C para encerrar ou use 'pconnect stop' em outro terminal.");
 
+                    // Mantém o processo vivo para que os servidores não fechem
                     loop {
                         std::thread::sleep(std::time::Duration::from_secs(1));
                     }
                 }
                 Commands::Stop => { 
+                    println!("🛑 Encerrando todos os serviços do projeto...");
+                    
                     managers::php_manager::stop_php();
                     managers::mysql_manager::stop_mysql();
                     managers::bun_manager::stop_vue();
+                    
+                    println!("✅ Todos os processos foram finalizados.");
                 },
                 _ => unreachable!(),
             }

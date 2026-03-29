@@ -1,41 +1,55 @@
 use std::process::{Command, Stdio};
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::configs::php_connects_cfg::Config;
+use crate::configs::pconnect_cfg::{ProjectConfig, GlobalConfig};
 
-const PID_FILE: &str = ".php.pid";
+const PID_FILE: &str = ".pconnect_php.pid";
 
-fn get_php_executable_path(version: &str) -> PathBuf {
-    let home = std::env::var("USERPROFILE").expect("Não foi possível encontrar a pasta do usuário.");
+fn get_php_executable(global: &GlobalConfig) -> PathBuf {
+    // Se não for para usar o instalado pelo pconnect, assume que está no PATH
+    if !global.installations.php_install {
+        return PathBuf::from("php.exe");
+    }
+
+    let home = std::env::var("USERPROFILE").expect("❌ Erro: USERPROFILE não encontrado");
     PathBuf::from(home)
         .join(".php-connects")
-        .join(format!("php-{}", version))
+        .join(format!("php-{}", global.default_versions.php_version))
         .join("php.exe")
 }
 
-pub fn run_php(config: &Config) {
-    // Verificar se o PHP já está rodando
+pub fn run_php(project: &ProjectConfig, global: &GlobalConfig) {
     if Path::new(PID_FILE).exists() {
-        println!("⚠️ O PHP já está rodando. Use 'php-connects php end' para encerrar antes de iniciar novamente.");
+        println!("⚠️  O servidor PHP já parece estar rodando.");
         return;
     }
 
-    let php_bin = get_php_executable_path(&config.versions.php_version);
-    println!("Iniciando PHP na porta {}...", config.ports.php_port);
+    let php_bin = get_php_executable(global);
+    let backend_path = Path::new(&project.paths.backend_dir);
 
-    if !php_bin.exists() {
-        println!("❌ Erro: PHP {} não encontrado em: {}", config.versions.php_version, php_bin.display());
-        println!("Execute 'pconnect setup' ou 'pconnect install' primeiro.");
+    if global.installations.php_install && !php_bin.exists() {
+        println!("❌ Erro: PHP não encontrado em {}. Rode 'pconnect install'.", php_bin.display());
         return;
     }
 
-    println!("🐘 Iniciando PHP {} na porta {}...", config.versions.php_version, config.ports.php_port);
+    // Verifica se o artisan existe antes de tentar rodar
+    let artisan_path = backend_path.join("artisan");
+    if !artisan_path.exists() {
+        println!("❌ Erro: Arquivo 'artisan' não encontrado em {}. Isso é um projeto Laravel?", backend_path.display());
+        return;
+    }
 
+    println!("🐘 Iniciando Laravel (PHP) na porta {}...", project.ports.laravel_port);
+
+    // Usamos o 'artisan serve' para garantir que o Laravel funcione perfeitamente
     let child = Command::new(php_bin)
         .args([
-            "-S", &format!("localhost:{}", config.ports.php_port),
-            "-t", &config.paths.backend_dir,
+            "artisan", 
+            "serve", 
+            "--host=127.0.0.1", 
+            &format!("--port={}", project.ports.laravel_port)
         ])
+        .current_dir(backend_path)
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .spawn();
@@ -44,7 +58,7 @@ pub fn run_php(config: &Config) {
         Ok(process) => {
             let pid = process.id();
             fs::write(PID_FILE, pid.to_string()).expect("Não foi possível salvar o PID do PHP");
-            println!("✅ PHP iniciado com sucesso (PID: {})", pid);
+            println!("✅ PHP/Laravel pronto! (PID: {})", pid);
         }
         Err(e) => println!("❌ Erro ao iniciar o PHP: {}", e),
     }
@@ -52,23 +66,15 @@ pub fn run_php(config: &Config) {
 
 pub fn stop_php() {
     if !Path::new(PID_FILE).exists() {
-        println!("⚠️ Nenhum processo PHP ativo encontrado.");
         return;
     }
 
-    let pid = fs::read_to_string(PID_FILE).expect("Erro ao ler PID");
+    let pid = fs::read_to_string(PID_FILE).unwrap_or_default();
     
-    println!("🛑 Encerrando PHP (PID: {})...", pid.trim());
-
-    let status = Command::new("taskkill")
+    let _ = Command::new("taskkill")
         .args(["/F", "/PID", pid.trim(), "/T"])
         .output();
 
-    match status {
-        Ok(_) => {
-            let _ = fs::remove_file(PID_FILE);
-            println!("✅ PHP encerrado e porta liberada.");
-        }
-        Err(e) => println!("❌ Erro ao encerrar: {}", e),
-    }
+    let _ = fs::remove_file(PID_FILE);
+    println!("✅ Servidor PHP encerrado.");
 }

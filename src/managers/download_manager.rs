@@ -2,31 +2,29 @@ use std::fs;
 use std::io::{copy, Cursor};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use crate::configs::pconnect_cfg::GlobalConfig;
 
-const DEFAULT_PHP: &str = "8.5.4";
-const DEFAULT_MYSQL: &str = "8.0.46";
-const DEFAULT_BUN: &str = "1.3.6";
-
-pub fn install_all() {
-    let home_dir = std::env::var("USERPROFILE").expect("Não foi possível encontrar a pasta do usuário.");
+pub fn install_all(global: &GlobalConfig) {
+    let home_dir = std::env::var("USERPROFILE").unwrap();
     let base_path = PathBuf::from(home_dir).join(".php-connects");
 
-    // URLs usando as constantes padrão
-    let php_url = format!("https://windows.php.net/downloads/releases/archives/php-{}-Win32-vs16-x64.zip", DEFAULT_PHP);
-    let mysql_url = format!("https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-{}-winx64.zip", DEFAULT_MYSQL);
-    let bun_url = format!("https://github.com/oven-sh/bun/releases/download/bun-v{}/bun-windows-x64.zip", DEFAULT_BUN);
-
-    if !base_path.exists() {
-        fs::create_dir_all(&base_path).unwrap();
+    // PHP
+    if global.installations.php_install {
+        let url = format!("https://windows.php.net/downloads/releases/archives/php-{}-Win32-vs16-x64.zip", global.default_versions.php_version);
+        download_and_extract("php", &url, &global.default_versions.php_version, &base_path);
     }
 
-    println!("🛠️ Iniciando instalação global do ecossistema pconnect...");
+    // MySQL
+    if global.installations.mysql_install {
+        let url = format!("https://dev.mysql.com/get/Downloads/MySQL-8.0/mysql-{}-winx64.zip", global.default_versions.mysql_version);
+        download_and_extract("mysql", &url, &global.default_versions.mysql_version, &base_path);
+    }
 
-    download_and_extract("php", &php_url, DEFAULT_PHP, &base_path);
-    download_and_extract("mysql", &mysql_url, DEFAULT_MYSQL, &base_path);
-    download_and_extract("bun", &bun_url, DEFAULT_BUN, &base_path);
-    
-    println!("\n✨ Instalação concluída! Agora você pode usar 'pconnect create <nome>'.");
+    // Bun
+    if global.installations.bun_install {
+        let url = format!("https://github.com/oven-sh/bun/releases/download/bun-v{}/bun-windows-x64.zip", global.default_versions.bun_version);
+        download_and_extract("bun", &url, &global.default_versions.bun_version, &base_path);
+    }
 }
 
 fn download_and_extract(program_name: &str, url: &str, version: &str, target_path: &Path) {

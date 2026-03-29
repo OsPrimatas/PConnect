@@ -1,102 +1,120 @@
-use std::process::{Command};
+use std::process::{Command, Stdio};
 use std::fs;
-use std::path::{PathBuf};
+use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
-use crate::configs::php_connects_cfg::Config;
+use crate::configs::pconnect_cfg::{ProjectConfig, GlobalConfig};
 
-const PID_FILE: &str = ".mysql.pid";
+const PID_FILE: &str = ".pconnect_mysql.pid";
 
-// Obter a pasta global de instalação do MySQL (a mesma usada pelo download_manager)
-fn get_global_mysql_bin(version: &str) -> PathBuf {
-    // 1. Pega a pasta do usuário (C:\Users\Nome)
-    let home = std::env::var("USERPROFILE")
-        .expect("❌ Erro: Não foi possível encontrar a variável USERPROFILE");
+fn get_mysql_bin(global: &GlobalConfig) -> PathBuf {
+    // Se não for para usar o instalado pelo pconnect, tenta o global do sistema
+    if !global.installations.mysql_install {
+        return PathBuf::from("mysqld.exe");
+    }
 
-    // 2. Monta o caminho até o executável que o download_manager baixou
+    let home = std::env::var("USERPROFILE").expect("❌ Erro: USERPROFILE não encontrado");
     PathBuf::from(home)
-        .join(".php-connects")           // Sua pasta global
-        .join(format!("mysql-{}", version)) // Pasta da versão específica
-        .join("bin")                     // Pasta padrão de binários do MySQL
-        .join("mysqld.exe")              // O "Daemon" (servidor) do MySQL
+        .join(".php-connects")
+        .join(format!("mysql-{}", global.default_versions.mysql_version))
+        .join("bin")
+        .join("mysqld.exe")
 }
 
-pub fn run_mysql(config: &Config) {
-    let mysql_bin = get_global_mysql_bin(&config.versions.mysql_version);
-    let mysql_client = mysql_bin.parent().unwrap().join("mysql.exe"); // O cliente para enviar comandos
-    let local_data_dir = std::env::current_dir().unwrap().join(".cache").join("mysql");
-    
-    let is_first_run = !local_data_dir.exists();
-
-    if is_first_run {
-        println!("🎲 Inicializando novo banco de dados local...");
-        fs::create_dir_all(&local_data_dir).unwrap();
-
-        Command::new(&mysql_bin)
-            .arg("--initialize-insecure")
-            .arg(format!("--datadir={}", local_data_dir.display()))
-            .output()
-            .expect("Falha ao inicializar banco local");
-    }
-
-    println!("🐬 Iniciando MySQL Local (Porta: {})", config.ports.mysql_port);
-
-    let child = Command::new(&mysql_bin)
-        .args([
-            &format!("--datadir={}", local_data_dir.display()),
-            &format!("--port={}", config.ports.mysql_port),
-            "--console",
-        ])
-        .spawn()
-        .expect("Falha ao disparar MySQL");
-
-    // Salva o PID para o stop_mysql
-    fs::write(PID_FILE, child.id().to_string()).ok();
-
-    // 🔑 Configuração de Usuário e Senha (apenas na primeira vez)
-    if is_first_run {
-        println!("🔐 Configurando credenciais do root...");
-        
-        // Aguarda o banco subir totalmente
-        thread::sleep(Duration::from_secs(5));
-
-        let sql_command = format!(
-            "ALTER USER 'root'@'localhost' IDENTIFIED BY '{}'; FLUSH PRIVILEGES;",
-            config.mysql.pass
-        );
-
-        let setup_status = Command::new(mysql_client)
-            .args([
-                "--port", &config.ports.mysql_port.to_string(),
-                "-u", "root",
-                "--skip-password",
-                "-e", &sql_command
-            ])
-            .status();
-
-        match setup_status {
-            Ok(s) if s.success() => println!("✅ Root configurado com a senha do seu config.toml!"),
-            _ => println!("⚠️ Aviso: Não foi possível setar a senha. Talvez o banco demorou a subir."),
-        }
-    }
-}
-
-pub fn stop_mysql() {
-    if !std::path::Path::new(PID_FILE).exists() {
-        println!("⚠️ Nenhum MySQL ativo encontrado.");
+pub fn run_mysql(project: &ProjectConfig, global: &GlobalConfig) {
+    if Path::new(PID_FILE).exists() {
+        println!("⚠️  O MySQL já parece estar rodando.");
         return;
     }
 
+    let mysql_bin = get_mysql_bin(global);
+    let mysql_client = mysql_bin.parent().unwrap_or(Path::new(".")).join("mysql.exe");
+    
+    // O banco de dados fica isolado na pasta .cache do projeto atual
+    let local_data_dir = std::env::current_dir().unwrap().join(".cache").join("mysql");
+    let is_first_run = !local_data_dir.exists();
+
+    if !mysql_bin.exists() && global.installations.mysql_install {
+        println!("❌ Erro: MySQL não encontrado em {}. Rode 'pconnect install'.", mysql_bin.display());
+        return;
+    }
+
+    // 1. Inicialização (Apenas na primeira vez que o projeto roda)
+    if is_first_run {
+        println!("🎲 Inicializando novo banco de dados local para o projeto...");
+        fs::create_dir_all(&local_data_dir).unwrap();
+
+        let init_status = Command::new(&mysql_bin)
+            .arg("--initialize-insecure") // Cria root sem senha inicialmente
+            .arg(format!("--datadir={}", local_data_dir.display()))
+            .output();
+
+        if let Err(e) = init_status {
+            println!("❌ Falha ao inicializar banco: {}", e);
+            return;
+        }
+    }
+
+    println!("🐬 Iniciando MySQL na porta {}...", project.ports.mysql_port);
+
+    // 2. Disparar o Servidor
+    let child = Command::new(&mysql_bin)
+        .args([
+            &format!("--datadir={}", local_data_dir.display()),
+            &format!("--port={}", project.ports.mysql_port),
+            "--console",
+        ])
+        .stdout(Stdio::null()) // Silenciamos o log bruto do MySQL para não poluir o terminal
+        .spawn();
+
+    match child {
+        Ok(process) => {
+            let pid = process.id();
+            fs::write(PID_FILE, pid.to_string()).ok();
+            println!("✅ MySQL pronto! (PID: {})", pid);
+
+            // 3. Configuração de Credenciais (Apenas no First Run)
+            if is_first_run {
+                setup_mysql_credentials(&mysql_client, project);
+            }
+        }
+        Err(e) => println!("❌ Erro ao disparar MySQL: {}", e),
+    }
+}
+
+fn setup_mysql_credentials(mysql_client: &Path, project: &ProjectConfig) {
+    println!("🔐 Configurando credenciais (root) e criando Database '{}'...", project.mysql.db);
+    
+    // Aguarda o motor do banco subir
+    thread::sleep(Duration::from_secs(5));
+
+    // Comando para setar senha e criar o banco definido no pconnect.cfg.toml
+    let sql_commands = format!(
+        "ALTER USER 'root'@'localhost' IDENTIFIED BY '{}'; CREATE DATABASE IF NOT EXISTS {}; FLUSH PRIVILEGES;",
+        project.mysql.pass, project.mysql.db
+    );
+
+    let _ = Command::new(mysql_client)
+        .args([
+            "--port", &project.ports.mysql_port.to_string(),
+            "-u", "root",
+            "--skip-password",
+            "-e", &sql_commands
+        ])
+        .status();
+
+    println!("✅ Banco de dados e senha configurados!");
+}
+
+pub fn stop_mysql() {
+    if !Path::new(PID_FILE).exists() { return; }
+
     let pid = fs::read_to_string(PID_FILE).unwrap_or_default();
     
-    println!("🛑 Encerrando MySQL (PID: {})...", pid);
-
-    let status = Command::new("taskkill")
+    let _ = Command::new("taskkill")
         .args(["/F", "/PID", pid.trim(), "/T"])
         .output();
 
-    if status.is_ok() {
-        let _ = fs::remove_file(PID_FILE);
-        println!("✅ MySQL encerrado.");
-    }
+    let _ = fs::remove_file(PID_FILE);
+    println!("✅ Servidor MySQL encerrado.");
 }

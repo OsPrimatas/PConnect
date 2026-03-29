@@ -56,11 +56,11 @@ O **pconnect** segue uma arquitetura opinativa para garantir portabilidade:
 
 ```bash
 /meu-projeto
-├── /backend                # Laravel Framework (PHP 8.x)
-├── /frontend               # Vue 3 + Vite (Bun)
-├── /.cache/mysql           # Dados do MySQL (Exclusivos deste projeto)
-├── php_connects.cfg.toml   # Configurações de portas, versões e proxy
-└── .php.pid                # Arquivo de controle de processo
+├── /backend                    # Laravel Framework (PHP 8.x)
+├── /frontend                   # Vue 3 + Vite (Bun)
+├── /.cache/mysql               # Dados do MySQL (Exclusivos deste projeto)
+├── php_connects.cfg.toml       # Configurações de portas, versões e proxy
+└── .pconnect.pid               # Arquivo de controle de processo
 ```
 
 ### ⚙️ Requisitos

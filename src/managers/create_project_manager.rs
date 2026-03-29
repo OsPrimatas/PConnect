@@ -1,11 +1,9 @@
 use std::fs;
 use std::process::Command;
 use std::path::{Path, PathBuf};
+use crate::configs::pconnect_cfg::GlobalConfig;
 
-const DEFAULT_PHP: &str = "8.5.4";
-const DEFAULT_BUN: &str = "1.3.6";
-
-pub fn create_project(name: &str) {
+pub fn create_project(name: &str, global: &GlobalConfig) {
     let project_root = std::env::current_dir().unwrap().join(name);
 
     if project_root.exists() {
@@ -13,33 +11,36 @@ pub fn create_project(name: &str) {
         return;
     }
 
-    println!("🏗️  Criando novo projeto fullstack: {}...", name);
+    println!("🏗️ Criando novo projeto Fullstack: {}...", name);
     fs::create_dir_all(&project_root).expect("Falha ao criar pasta do projeto");
 
-    // 1. Criar o arquivo de configuração padrão
-    generate_default_toml(&project_root, name);
+    // 1. Gerar o pconnect.cfg.toml (Local)
+    generate_local_toml(&project_root, name);
 
     // 2. Criar o Back-end (Laravel)
-    create_laravel_backend(&project_root.join("backend"));
+    let backend_path = project_root.join("backend");
+    create_laravel_backend(&backend_path, global);
 
     // 3. Criar o Front-end (Vue + Vite via Bun)
-    create_vue_frontend(&project_root.join("frontend"));
+    let frontend_path = project_root.join("frontend");
+    create_vue_frontend(&frontend_path, global);
 
     // 4. Configurar o .env do Laravel para o seu MySQL local
-    setup_env_file(&project_root.join("backend"), name);
+    setup_env_file(&backend_path, name);
 
     println!("\n✨ Projeto '{}' criado com sucesso!", name);
     println!("👉 Digite 'cd {}' e depois 'pconnect run' para começar.", name);
 }
 
-fn create_laravel_backend(path: &Path) {
+fn create_laravel_backend(path: &Path, global: &GlobalConfig) {
     println!("🐘 Instalando Laravel Skeleton...");
     
-    let php_bin = get_global_bin("php", DEFAULT_PHP, "php.exe");
-    let composer_path = get_global_bin("php", DEFAULT_PHP, "composer.phar");
+    let php_bin = get_global_bin("php", &global.default_versions.php_version, "php.exe");
+    // O composer.phar geralmente fica na raiz da pasta do PHP que você instalou
+    let composer_path = get_global_bin("php", &global.default_versions.php_version, "composer.phar");
 
     if !php_bin.exists() {
-        println!("❌ Erro: PHP não encontrado. Rode 'pconnect install' primeiro.");
+        println!("❌ Erro: PHP não encontrado em {}. Rode 'pconnect install' primeiro.", php_bin.display());
         return;
     }
 
@@ -53,19 +54,19 @@ fn create_laravel_backend(path: &Path) {
         .status();
 
     if let Err(e) = status {
-        println!("⚠️ Erro ao criar Laravel: {}. Verifique se o composer.phar está em {}", e, composer_path.display());
+        println!("⚠️ Erro ao executar o Composer: {}", e);
     }
 }
 
-fn create_vue_frontend(path: &Path) {
+fn create_vue_frontend(path: &Path, global: &GlobalConfig) {
     println!("⚡ Gerando Frontend com Bun (Vue + Vite)...");
     
-    let bun_bin = get_global_bin("bun", DEFAULT_BUN, "bun-windows-x64/bun.exe");
-
-    if !bun_bin.exists() {
-        println!("❌ Erro: Bun não encontrado. Rode 'pconnect install' primeiro.");
-        return;
-    }
+    // Verificamos se usamos o Bun global do sistema ou o que o pconnect instalou
+    let bun_bin = if global.installations.bun_install {
+        get_global_bin("bun", &global.default_versions.bun_version, "bun-windows-x64/bun.exe")
+    } else {
+        PathBuf::from("bun") // Tenta usar o que já está no PATH do usuário
+    };
 
     let status = Command::new(bun_bin)
         .args([
@@ -77,51 +78,45 @@ fn create_vue_frontend(path: &Path) {
         .status();
 
     if let Err(e) = status {
-        println!("❌ Erro ao rodar Bun: {}", e);
+        println!("❌ Erro ao rodar Bun: {}. Verifique se ele está instalado corretamente.", e);
     }
 }
 
 fn setup_env_file(backend_path: &Path, project_name: &str) {
     let env_path = backend_path.join(".env");
+    
+    // O Laravel cria o .env automaticamente no create-project, mas vamos garantir
     if !env_path.exists() { return; }
 
-    println!("🔧 Configurando .env para MySQL local...");
+    println!("🔧 Ajustando .env para conexão local...");
 
     let content = fs::read_to_string(&env_path).unwrap_or_default();
 
-    // Substituições baseadas nos padrões do generate_default_toml
+    // Ajustes para as portas e dados que definimos no TOML local
     let new_content = content
+        .replace("DB_CONNECTION=sqlite", "DB_CONNECTION=mysql") // Laravel 11+ usa sqlite por padrão
         .replace("DB_HOST=127.0.0.1", "DB_HOST=localhost")
         .replace("DB_PORT=3306", "DB_PORT=8082")
         .replace("DB_DATABASE=laravel", &format!("DB_DATABASE={}_db", project_name))
         .replace("DB_USERNAME=root", "DB_USERNAME=root")
         .replace("DB_PASSWORD=", "DB_PASSWORD=admin");
 
-    fs::write(env_path, new_content).expect("Falha ao salvar .env configurado");
+    fs::write(env_path, new_content).expect("Falha ao salvar .env");
 }
 
 fn get_global_bin(name: &str, version: &str, subpath: &str) -> PathBuf {
-    let home = std::env::var("USERPROFILE").expect("USERPROFILE não definido");
+    let home = std::env::var("USERPROFILE").expect("USERPROFILE não encontrado");
     PathBuf::from(home)
         .join(".php-connects")
         .join(format!("{}-{}", name, version))
         .join(subpath)
 }
 
-fn generate_default_toml(project_path: &Path, project_name: &str) {
-    let toml_path = project_path.join("php_connects.cfg.toml");
+fn generate_local_toml(project_path: &Path, project_name: &str) {
+    let toml_path = project_path.join("pconnect.cfg.toml");
     
     let default_content = format!(
-    r#"[project]
-    name = "{0}"
-    edition = "1.0"
-
-    [stack]
-    frontend = "vue"
-    backend = "laravel"
-    database = "mysql"
-
-    [ports]
+    r#"[ports]
     php_port = 8080
     laravel_port = 8081
     mysql_port = 8082
@@ -131,22 +126,15 @@ fn generate_default_toml(project_path: &Path, project_name: &str) {
     backend_dir = "./backend"
     frontend_dir = "./frontend"
 
-    [versions]
-    bun_version = "{1}"
-    vue_version = "3.5.31"
-    laravel_version = "13"
-    php_version = "{2}"
-    mysql_version = "8.0.46"
-
     [mysql]
     db = "{0}_db"
     host = "localhost"
     user = "root"
     pass = "admin"
-    "#, project_name, DEFAULT_BUN, DEFAULT_PHP);
+    "#, project_name);
 
     fs::write(toml_path, default_content)
-        .expect("❌ Erro ao criar o arquivo php_connects.cfg.toml inicial");
+        .expect("❌ Erro ao criar o arquivo pconnect.cfg.toml");
     
-    println!("📝 Arquivo de configuração gerado: php_connects.cfg.toml");
+    println!("📝 Configuração local gerada com sucesso.");
 }

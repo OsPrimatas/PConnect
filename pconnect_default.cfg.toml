@@ -1,0 +1,13 @@
+[default_versions]
+bun_version = "1.3.6"
+vue_version = "3.5.31"
+laravel_version = "13"
+php_version = "8.5.4"
+mysql_version = "8.0.46"
+
+[installations]
+bun_install = "true"
+vue_install = "true"
+laravel_install = "true"
+php_install = "true"
+mysql_install = "true"
