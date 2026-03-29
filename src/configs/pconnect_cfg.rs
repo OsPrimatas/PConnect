@@ -12,7 +12,7 @@ pub struct GlobalConfig {
 pub struct DefaultVersions {
     pub bun_version: String,
     pub php_version: String,
-    pub mysql_version: String,
+    pub postgresql_version: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -21,7 +21,7 @@ pub struct Installations {
     pub vue_install: bool,
     pub laravel_install: bool,
     pub php_install: bool,
-    pub mysql_install: bool,
+    pub postgresql_install: bool,
 }
 
 // --- CONFIGURAÇÃO LOCAL (Fica na raiz do projeto criado) ---
@@ -29,14 +29,14 @@ pub struct Installations {
 pub struct ProjectConfig {
     pub ports: Ports,
     pub paths: Paths,
-    pub mysql: Mysql,
+    pub postgresql: PostgreSQL,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Ports {
     pub php_port: u16,
     pub laravel_port: u16,
-    pub mysql_port: u16,
+    pub postgresql_port: u16,
     pub vue_port: u16,
 }
 
@@ -47,7 +47,7 @@ pub struct Paths {
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct Mysql {
+pub struct PostgreSQL {
     pub db: String,
     pub host: String,
     pub user: String,

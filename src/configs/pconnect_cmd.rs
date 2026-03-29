@@ -14,6 +14,7 @@ pub enum Commands {
     Create(CreateArgs),
     Run,
     Stop,
+    Shell,
 }
 
 #[derive(Parser)]

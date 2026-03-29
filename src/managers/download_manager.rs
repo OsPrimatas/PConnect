@@ -1,48 +1,88 @@
 use std::fs;
-use std::io::{copy, Cursor};
+use std::io::{copy, Cursor, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use reqwest::header::{HeaderMap, USER_AGENT};
 use crate::configs::pconnect_cfg::GlobalConfig;
 
 pub fn install_all(global: &GlobalConfig) {
     let home_dir = std::env::var("USERPROFILE").expect("❌ Erro: USERPROFILE não encontrado");
-    // Usando .pconnect conforme seu ajuste no código anterior
     let base_path = PathBuf::from(home_dir).join(".pconnect");
 
     if !base_path.exists() {
         fs::create_dir_all(&base_path).ok();
     }
 
-    // PHP
+    // Instalação do PHP + Composer
     if global.installations.php_install {
+        let version = &global.default_versions.php_version;
         let url = format!(
             "https://downloads.php.net/~windows/releases/archives/php-{}-nts-Win32-vs17-x64.zip", 
-            global.default_versions.php_version
+            version
         );
-        download_and_extract("php", &url, &global.default_versions.php_version, &base_path);
+        
+        // 1. Instala o PHP
+        download_and_extract("php", &url, version, &base_path);
+        
+        let php_path = base_path.join(format!("php-{}", version));
+        
+        // 2. Configura o php.ini
+        configure_php(&php_path);
+
+        // 3. Baixa o Composer.phar para dentro da pasta do PHP
+        download_composer(&php_path);
     }
 
-    // MySQL
-    if global.installations.mysql_install {
-        let version = &global.default_versions.mysql_version;
-        let major_minor = version.split('.').take(2).collect::<Vec<_>>().join(".");
-
-        // URL para versões novas (GA)
+    // --- PostgreSQL ---
+    if global.installations.postgresql_install {
+        let version = &global.default_versions.postgresql_version;
         let url = format!(
-            "https://dev.mysql.com/get/Downloads/MySQL-{}/mysql-{}-winx64.zip",
-            major_minor, version
+            "https://get.enterprisedb.com/postgresql/postgresql-{}-1-windows-x64-binaries.zip",
+            version
         );
-
-        download_and_extract("mysql", &url, version, &base_path);
+        
+        download_and_extract("postgres", &url, version, &base_path);
     }
 
-    // Bun
+    // --- Bun ---
     if global.installations.bun_install {
+        let version = &global.default_versions.bun_version;
         let url = format!(
             "https://github.com/oven-sh/bun/releases/download/bun-v{}/bun-windows-x64-baseline.zip", 
-            global.default_versions.bun_version
+            version
         );
-        download_and_extract("bun", &url, &global.default_versions.bun_version, &base_path);
+        download_and_extract("bun", &url, version, &base_path);
+    }
+}
+
+// Função para baixar o Composer especificamente
+fn download_composer(php_path: &Path) {
+    let composer_path = php_path.join("composer.phar");
+    
+    if composer_path.exists() {
+        println!("🗂️  Composer já está presente na pasta do PHP.");
+        return;
+    }
+
+    println!("📥 Baixando Composer...");
+    
+    let client = reqwest::blocking::Client::new();
+    let response = client.get("https://getcomposer.org/composer.phar")
+        .header(USER_AGENT, "Mozilla/5.0")
+        .send();
+
+    match response {
+        Ok(res) => {
+            if res.status().is_success() {
+                let mut file = fs::File::create(&composer_path).expect("Falha ao criar arquivo composer.phar");
+                let mut content = Cursor::new(res.bytes().expect("Falha ao ler bytes do Composer"));
+                copy(&mut content, &mut file).expect("Falha ao salvar o Composer");
+                println!("✅ Composer instalado com sucesso em {}!", php_path.display());
+            } else {
+                println!("❌ Erro ao baixar Composer: Status {}", res.status());
+            }
+        }
+        Err(e) => println!("❌ Erro de conexão ao baixar Composer: {}", e),
     }
 }
 
@@ -56,9 +96,11 @@ fn download_and_extract(program_name: &str, url: &str, version: &str, target_pat
     
     println!("📥 Baixando {}-{}...", program_name, version);
     
-    // Configuração do Cliente HTTP com User-Agent (Disfarce de Navegador)
+    let mut headers = HeaderMap::new();
+    headers.insert(USER_AGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36".parse().unwrap());
+
     let client = reqwest::blocking::Client::builder()
-        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .default_headers(headers)
         .build()
         .unwrap();
 
@@ -68,7 +110,6 @@ fn download_and_extract(program_name: &str, url: &str, version: &str, target_pat
 
     if !response.status().is_success() {
         println!("❌ Erro ao baixar {}: Status {} na URL: {}", program_name, response.status(), url);
-        println!("💡 Dica: Verifique se a versão {} está correta no pconnect_default.cfg.toml", version);
         return;
     }
 
@@ -80,54 +121,82 @@ fn download_and_extract(program_name: &str, url: &str, version: &str, target_pat
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).unwrap();
+        if file.name().contains("__MACOSX") { continue; }
+        
         let outpath = match file.enclosed_name() {
             Some(path) => program_path.join(path),
             None => continue,
         };
 
-        // Ignorar pastas de metadados inúteis que vem no Bun (macOS)
-        if file.name().contains("__MACOSX") {
-            continue;
-        }
-
         if file.name().ends_with('/') {
             fs::create_dir_all(&outpath).unwrap();
         } else {
             if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    fs::create_dir_all(&p).unwrap();
-                }
+                if !p.exists() { fs::create_dir_all(&p).unwrap(); }
             }
             let mut outfile = fs::File::create(&outpath).unwrap();
             copy(&mut file, &mut outfile).unwrap();
         }
     }
 
-    println!("✅ {}-{} instalado com sucesso em .pconnect!", program_name, version);
+    println!("✅ {}-{} instalado com sucesso!", program_name, version);
 
-    if program_name == "mysql" {
-        initialize_mysql_local_storage(&program_path);
+    if program_name == "postgres" {
+        initialize_postgres_local_storage(&program_path);
     }
 }
 
-fn initialize_mysql_local_storage(mysql_path: &Path) {
-    let mysqld_bin = mysql_path.join("bin").join("mysqld.exe");
+fn configure_php(php_path: &Path) {
+    let ini_dev = php_path.join("php.ini-development");
+    let ini_real = php_path.join("php.ini");
 
-    if !mysqld_bin.exists() { 
-        println!("⚠️ Aviso: mysqld.exe não encontrado em {}. Pulando inicialização.", mysqld_bin.display());
+    if !ini_dev.exists() || ini_real.exists() { return; }
+
+    println!("⚙️  Configurando php.ini para PostgreSQL...");
+
+    if let Ok(content) = fs::read_to_string(&ini_dev) {
+        let mut new_content = content
+            .replace(";extension_dir = \"ext\"", "extension_dir = \"ext\"")
+            .replace(";extension=curl", "extension=curl")
+            .replace(";extension=mbstring", "extension=mbstring")
+            .replace(";extension=openssl", "extension=openssl")
+            .replace(";extension=pdo_pgsql", "extension=pdo_pgsql")
+            .replace(";extension=pgsql", "extension=pgsql")
+            .replace(";extension=fileinfo", "extension=fileinfo"); // Importante para o Laravel
+
+        new_content = new_content.replace(";extension=pdo_sqlite", "extension=pdo_sqlite");
+
+        let mut file = fs::File::create(ini_real).unwrap();
+        file.write_all(new_content.as_bytes()).unwrap();
+        println!("✅ php.ini configurado com extensões necessárias.");
+    }
+}
+
+fn initialize_postgres_local_storage(pg_path: &Path) {
+    let mut bin_path = pg_path.join("bin");
+    if !bin_path.exists() {
+        bin_path = pg_path.join("pgsql").join("bin");
+    }
+
+    let initdb_bin = bin_path.join("initdb.exe");
+    let data_dir = pg_path.join("data");
+
+    if !initdb_bin.exists() { 
+        println!("⚠️  initdb.exe não encontrado em {}. Verifique a estrutura.", bin_path.display());
         return; 
     }
 
-    println!("⚙️  Inicializando base de dados global do MySQL (Insecure)...");
+    if data_dir.exists() { return; }
 
-    let status = Command::new(mysqld_bin)
-        .arg("--initialize-insecure")
-        .arg(format!("--basedir={}", mysql_path.display()))
-        .arg(format!("--datadir={}", mysql_path.join("data").display()))
+    println!("⚙️  Inicializando cluster de dados do PostgreSQL...");
+
+    let _ = Command::new(initdb_bin)
+        .arg("-D")
+        .arg(&data_dir)
+        .arg("-U")
+        .arg("postgres")
+        .arg("--auth=trust")
         .status();
 
-    match status {
-        Ok(s) if s.success() => println!("✅ Base de dados MySQL inicializada."),
-        _ => println!("⚠️ Falha ao inicializar banco de dados ou ele já existe."),
-    }
+    println!("✅ PostgreSQL pronto para uso local.");
 }

@@ -8,9 +8,9 @@ O **pconnect** é um gerenciador de projetos e CLI escrito em Rust, projetado pa
 
 | Comando                  | Descrição                                                                                                       |
 | :----------------------- | :-------------------------------------------------------------------------------------------------------------- |
-| `pconnect install`       | **Setup Global**: Baixa e instala as versões oficiais do PHP, MySQL e Bun na pasta do usuário.                  |
+| `pconnect install`       | **Setup Global**: Baixa e instala as versões oficiais do PHP, PostgreSQL e Bun na pasta do usuário.             |
 | `pconnect create <nome>` | **Scaffolding**: Cria um novo projeto com o esqueleto do Laravel (Backend) e Vue/Vite (Frontend) já integrados. |
-| `pconnect run`           | **Maestro**: Inicia simultaneamente o PHP, o MySQL local (.cache) e o servidor de dev do Vite via Bun.          |
+| `pconnect run`           | **Maestro**: Inicia simultaneamente o PHP, o PostgreSQL local (.cache) e o servidor de dev do Vite via Bun.     |
 | `pconnect stop`          | **Cleanup**: Encerra todos os processos ativos, libera as portas e remove os arquivos de PID.                   |
 
 ---
@@ -35,7 +35,7 @@ pconnect create "meu-projeto"
 
 ### 3. Desenvolvimento Ativo
 
-Entre na pasta criada e suba toda a stack. O **pconnect** configurará o domínio local (ex: meu-projeto.local) e abrirá as portas definidas no seu `.toml`.
+Entre na pasta criada e suba toda a stack. O **pconnect** configurará o domínio local e abrirá as portas definidas no seu `.toml`.
 
 ```bash
 cd meu-projeto
@@ -58,7 +58,7 @@ O **pconnect** segue uma arquitetura opinativa para garantir portabilidade:
 /meu-projeto
 ├── /backend                    # Laravel Framework (PHP 8.x)
 ├── /frontend                   # Vue 3 + Vite (Bun)
-├── /.cache/mysql               # Dados do MySQL (Exclusivos deste projeto)
+├── /.cache/PostgreSQL          # Dados do PostgreSQL (Exclusivos deste projeto)
 ├── php_connects.cfg.toml       # Configurações de portas, versões e proxy
 └── .pconnect.pid               # Arquivo de controle de processo
 ```
