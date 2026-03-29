@@ -11,7 +11,7 @@ fn get_postgresql_bin_dir(global: &GlobalConfig) -> PathBuf {
     let home = std::env::var("USERPROFILE").expect("❌ USERPROFILE não encontrado");
     let base = PathBuf::from(home)
         .join(".pconnect")
-        .join(format!("postgres-{}", global.default_versions.postgresql_version));
+        .join(format!("postgres-{}", global.versions.postgresql_version));
 
     let pgsql_folder = base.join("pgsql");
     if pgsql_folder.exists() {

@@ -7,9 +7,9 @@ pub fn spawn_shell(global: &GlobalConfig) {
     let base_path = PathBuf::from(home).join(".pconnect");
 
     // 1. Localiza os diretórios de binários usando a lógica de subpastas
-    let php_dir = base_path.join(format!("php-{}", global.default_versions.php_version));
-    let pg_dir = find_subfolder_bin(&base_path.join(format!("postgres-{}", global.default_versions.postgresql_version)), "bin");
-    let bun_dir = find_subfolder_bin(&base_path.join(format!("bun-{}", global.default_versions.bun_version)), "bun.exe");
+    let php_dir = base_path.join(format!("php-{}", global.versions.php_version));
+    let pg_dir = find_subfolder_bin(&base_path.join(format!("postgres-{}", global.versions.postgresql_version)), "bin");
+    let bun_dir = find_subfolder_bin(&base_path.join(format!("bun-{}", global.versions.bun_version)), "bun.exe");
 
     // 2. Monta o PATH
     let current_path = std::env::var("PATH").unwrap_or_default();

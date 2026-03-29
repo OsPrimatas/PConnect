@@ -1,4 +1,4 @@
-# 🚀 PConnect
+# 🚀 PConnect Tool
 
 O **pconnect** é um gerenciador de projetos e CLI escrito em Rust, projetado para orquestrar ambientes de desenvolvimento Fullstack de alto desempenho. Ele automatiza a instalação de binários globais e gerencia instâncias isoladas de banco de dados, integrando o ecossistema Laravel e Vue através do Bun.
 

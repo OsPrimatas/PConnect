@@ -4,12 +4,12 @@ use std::fs;
 // --- CONFIGURAÇÃO GLOBAL (Fica junto ao .exe) ---
 #[derive(Debug, Deserialize, Clone)]
 pub struct GlobalConfig {
-    pub default_versions: DefaultVersions,
+    pub versions: Versions,
     pub installations: Installations,
 }
 
 #[derive(Debug, Deserialize, Clone)]
-pub struct DefaultVersions {
+pub struct Versions {
     pub bun_version: String,
     pub php_version: String,
     pub postgresql_version: String,
@@ -60,12 +60,12 @@ pub struct PostgreSQL {
 pub fn load_global_config() -> GlobalConfig {
     let mut exe_path = std::env::current_exe().expect("Falha ao obter caminho do executável");
     exe_path.pop();
-    let config_path = exe_path.join("pconnect_default.cfg.toml");
+    let config_path = exe_path.join("pconnect_global.cfg.toml");
 
     let content = fs::read_to_string(&config_path)
-        .expect("❌ Erro: Arquivo 'pconnect_default.cfg.toml' não encontrado na pasta do executável.");
+        .expect("❌ Erro: Arquivo 'pconnect_global.cfg.toml' não encontrado na pasta do executável.");
 
-    toml::from_str(&content).expect("❌ Erro ao processar pconnect_default.cfg.toml")
+    toml::from_str(&content).expect("❌ Erro ao processar pconnect_global.cfg.toml")
 }
 
 /// Carrega o arquivo local do projeto

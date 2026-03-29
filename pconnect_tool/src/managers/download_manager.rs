@@ -15,7 +15,7 @@ pub fn install_all(global: &GlobalConfig) {
 
     // Instalação do PHP + Composer
     if global.installations.php_install {
-        let version = &global.default_versions.php_version;
+        let version = &global.versions.php_version;
         let url = format!(
             "https://downloads.php.net/~windows/releases/archives/php-{}-nts-Win32-vs17-x64.zip", 
             version
@@ -35,7 +35,7 @@ pub fn install_all(global: &GlobalConfig) {
 
     // --- PostgreSQL ---
     if global.installations.postgresql_install {
-        let version = &global.default_versions.postgresql_version;
+        let version = &global.versions.postgresql_version;
         let url = format!(
             "https://get.enterprisedb.com/postgresql/postgresql-{}-1-windows-x64-binaries.zip",
             version
@@ -46,7 +46,7 @@ pub fn install_all(global: &GlobalConfig) {
 
     // --- Bun ---
     if global.installations.bun_install {
-        let version = &global.default_versions.bun_version;
+        let version = &global.versions.bun_version;
         let url = format!(
             "https://github.com/oven-sh/bun/releases/download/bun-v{}/bun-windows-x64-baseline.zip", 
             version

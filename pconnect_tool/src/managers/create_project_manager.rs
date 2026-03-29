@@ -36,8 +36,8 @@ pub fn create_project(name: &str, global: &GlobalConfig) {
 fn create_laravel_backend(path: &Path, global: &GlobalConfig) {
     println!("🐘 Instalando Laravel Skeleton via Composer...");
     
-    let php_bin = get_global_bin("php", &global.default_versions.php_version, "php.exe");
-    let composer_path = get_global_bin("php", &global.default_versions.php_version, "composer.phar");
+    let php_bin = get_global_bin("php", &global.versions.php_version, "php.exe");
+    let composer_path = get_global_bin("php", &global.versions.php_version, "composer.phar");
 
     if !php_bin.exists() {
         println!("❌ Erro: PHP não encontrado em {}. Rode 'pconnect install' primeiro.", php_bin.display());
@@ -67,7 +67,7 @@ fn create_laravel_backend(path: &Path, global: &GlobalConfig) {
 fn create_vue_frontend(path: &Path, global: &GlobalConfig) {
     println!("⚡ Gerando Frontend com Bun (Vue + Vite)...");
     
-    let bun_bin = get_global_bin("bun", &global.default_versions.bun_version, "bun.exe");
+    let bun_bin = get_global_bin("bun", &global.versions.bun_version, "bun.exe");
     let project_root = path.parent().unwrap();
     let folder_name = path.file_name().unwrap().to_str().unwrap();
 
